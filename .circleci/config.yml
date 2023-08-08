@@ -2,7 +2,7 @@ version: 2.1
 executors:
   docker-publisher:
     environment:
-      IMAGE_NAME: migruiz/entrance-lights
+      IMAGE_NAME: migruiz/kitchen-lights
     docker:
       - image: circleci/buildpack-deps:stretch
 jobs:
@@ -47,7 +47,7 @@ workflows:
       - build:
           filters:
             branches:
-              only: master
+              only: main
       - publish-latest:
           requires:
             - build
@@ -55,4 +55,4 @@ workflows:
             - DockerHub
           filters:
             branches:
-              only: master
+              only: main

@@ -73,7 +73,8 @@ const OUTDOOR_SENSOR_TOPIC = process.env.OUTDOOR_SENSOR_TOPIC
 
 
 
-console.log(`starting entrance lights current time ${DateTime.now()}`)
+console.log(`starting kitchen lights current time ${DateTime.now()}`)
+return;
 
 const doorEntranceSensor = new Observable(async subscriber => {  
     var mqttCluster=await mqtt.getClusterAsync()   
