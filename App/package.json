@@ -1,0 +1,14 @@
+{
+  "name": "entrance-lights",
+  "version": "0.0.0",
+  "description": "entrance-lights",
+  "main": "app.js",
+  "author": {
+    "name": "miguel"
+  },
+  "dependencies": {
+    "luxon": "^3.3.0",
+    "mqtt": "~2.18.2",
+    "rxjs": "6.5.2"
+  }
+}
