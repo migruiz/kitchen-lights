@@ -22,13 +22,6 @@ const FIRE_ON_IR_CODE = '2600880100012a591242121a131a1319121b121a1440123e1719131
 console.log(`kitchen lights current time ${DateTime.now()}`);
 
 
-
-
-
-
-//auto function
-(function () {
-
   const sunRiseSetHourByMonth = {
     1:{
         sunRise: 9,
@@ -169,6 +162,3 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
     }
 })
 
-
-
-})();
