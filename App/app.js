@@ -150,7 +150,6 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
   );
 
 
-
   combinedStream
 .subscribe(async m => {
   console.log(m);
