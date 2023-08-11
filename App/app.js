@@ -154,7 +154,7 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
 .subscribe(async m => {
   console.log(m);
     if (m.actionState){
-      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','1000');
+      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','25');
     }
     else{
       (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','0');
