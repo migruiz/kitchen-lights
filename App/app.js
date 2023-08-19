@@ -126,23 +126,30 @@ const autoOnOffStream = merge(turnOnStream,turnOffStream).pipe(
 
 const buttonControl = new Observable(async subscriber => {  
   var mqttCluster=await mqtt.getClusterAsync()   
-  mqttCluster.subscribeData('zigbee2mqtt/0x04cd15fffe58b077', function(content){   
+  mqttCluster.subscribeData('zigbee2mqtt/0x2c1165fffecad895', function(content){   
           subscriber.next(content)
   });
 });
 
 
 const masterButtonStream = buttonControl.pipe(
-  filter( c=>  c.action==='off'),
-  mapTo({type:'master'})
+  filter( c=>  c.action==='brightness_move_down' || c.action==='off' || c.action==='on'),
+  map( c=> c.action),
+  map(action => {
+    if (action==='brightness_move_down') return { type:"masterOff"} 
+    else if (action==='off') return { type:"masterDown"}  
+    else if (action==='on')return { type:"masterUp"} 
+  })
 )
 
 const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,sunSetStream).pipe(
   scan((acc, curr) => {
-      if (curr.type==='master')  return {type:curr.type, masterState:!acc.masterState, actionState:!acc.masterState}
-      if (curr.type==='sunRise') return {type:curr.type, masterState:false, actionState:false}
-      if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState}
-      if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState}
+      if (curr.type==='masterOff')  return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
+      if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness:acc.brightness}
+      if (curr.type==='masterUp')  return {type:curr.type, masterState:true, actionState:true, brightness:acc.brightness}
+      if (curr.type==='sunRise') return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
+      if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState, brightness:acc.brightness}
+      if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState, brightness:acc.brightness}
       
   }, {masterState:false, actionState:false, type: 'init'}),
   filter(e => e.type!=='omit')
