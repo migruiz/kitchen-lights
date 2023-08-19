@@ -20,7 +20,7 @@ const FIRE_ON_IR_CODE = '2600880100012a591242121a131a1319121b121a1440123e1719131
 
 
 console.log(`kitchen lights current time ${DateTime.now()}`);
-
+global.mtqqLocalPath = 'mqtt://192.168.0.11';
 
   const sunRiseSetHourByMonth = {
     1:{
@@ -144,14 +144,14 @@ const masterButtonStream = buttonControl.pipe(
 
 const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,sunSetStream).pipe(
   scan((acc, curr) => {
-      if (curr.type==='masterOff')  return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
-      if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness:acc.brightness}
-      if (curr.type==='masterUp')  return {type:curr.type, masterState:true, actionState:true, brightness:acc.brightness}
+      if (curr.type==='masterOff')  return {type:curr.type, masterState:false, actionState:false, brightness:25}
+      if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness - 25 < 2 ? 2 : acc.brightness - 25 }
+      if (curr.type==='masterUp')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness + 25 > 504 ? 504 : acc.brightness + 25}
       if (curr.type==='sunRise') return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
       if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState, brightness:acc.brightness}
       if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState, brightness:acc.brightness}
       
-  }, {masterState:false, actionState:false, type: 'init'}),
+  }, {masterState:false, actionState:false, type: 'init', brightness:0}),
   filter(e => e.type!=='omit')
   
   );
@@ -161,7 +161,7 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
 .subscribe(async m => {
   console.log(m);
     if (m.actionState){
-      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','25');
+      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights',m.brightness.toString());
     }
     else{
       (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','0');
