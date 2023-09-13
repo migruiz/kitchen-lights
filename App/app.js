@@ -137,8 +137,8 @@ const masterButtonStream = buttonControl.pipe(
   map(c => {
     const {action} = c;
     if (action==='toggle') return { type:"toggle"} 
-    else if (action==='brightness_step_down') return { type:"masterDown", value:c.action_step_size*4}  
-    else if (action==='brightness_step_up')return { type:"masterUp", value:c.action_step_size*4}   
+    else if (action==='brightness_step_down') return { type:"masterDown", value:c.action_step_size*5}  
+    else if (action==='brightness_step_up')return { type:"masterUp", value:c.action_step_size*5}   
   })
 )
 
