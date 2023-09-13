@@ -126,27 +126,27 @@ const autoOnOffStream = merge(turnOnStream,turnOffStream).pipe(
 
 const buttonControl = new Observable(async subscriber => {  
   var mqttCluster=await mqtt.getClusterAsync()   
-  mqttCluster.subscribeData('zigbee2mqtt/0x2c1165fffecad895', function(content){   
+  mqttCluster.subscribeData('zigbee2mqtt/0x187a3efffefad05f', function(content){   
           subscriber.next(content)
   });
 });
 
 
 const masterButtonStream = buttonControl.pipe(
-  filter( c=>  c.action==='brightness_move_down' || c.action==='off' || c.action==='on'),
-  map( c=> c.action),
-  map(action => {
-    if (action==='brightness_move_down') return { type:"masterOff"} 
-    else if (action==='off') return { type:"masterDown"}  
-    else if (action==='on')return { type:"masterUp"} 
+  filter( c=>  c.action==='brightness_step_up' || c.action==='brightness_step_down' || c.action==='toggle'),
+  map(c => {
+    const {action} = c;
+    if (action==='toggle') return { type:"toggle"} 
+    else if (action==='brightness_step_down') return { type:"masterDown", value:c.action_step_size*4}  
+    else if (action==='brightness_step_up')return { type:"masterUp", value:c.action_step_size*4}   
   })
 )
 
 const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,sunSetStream).pipe(
   scan((acc, curr) => {
-      if (curr.type==='masterOff')  return {type:curr.type, masterState:false, actionState:false, brightness:25}
-      if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness - 25 < 2 ? 2 : acc.brightness - 25 }
-      if (curr.type==='masterUp')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness + 25 > 504 ? 504 : acc.brightness + 25}
+      if (curr.type==='toggle')  return {type:curr.type, masterState:!acc.masterState, actionState:!acc.masterState, brightness:100}
+      if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness - curr.value < 2 ? 2 : acc.brightness - curr.value }
+      if (curr.type==='masterUp')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness + curr.value > 1000 ? 1000 : acc.brightness + curr.value}
       if (curr.type==='sunRise') return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
       if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState, brightness:acc.brightness}
       if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState, brightness:acc.brightness}
@@ -161,10 +161,10 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
 .subscribe(async m => {
   console.log(m);
     if (m.actionState){
-      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights',m.brightness.toString());
+     // (await mqtt.getClusterAsync()).publishMessage('kitchen/lights',m.brightness.toString());
     }
     else{
-      (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','0');
+    //  (await mqtt.getClusterAsync()).publishMessage('kitchen/lights','0');
     }
 })
 
