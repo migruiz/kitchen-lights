@@ -37,7 +37,7 @@ global.mtqqLocalPath = 'mqtt://192.168.0.11';
     },
     4:{
         sunRise: 7,
-        sunSet: 19
+        sunSet: 18
     },
     5:{
         sunRise: 6,
@@ -121,6 +121,7 @@ const turnOnStream = sharedSensorStream.pipe(
 )
 const autoOnOffStream = merge(turnOnStream,turnOffStream).pipe(
   map(e=> ({type:'auto', actionState:e==='on'}))
+
 )
 
 
@@ -151,7 +152,7 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
       if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState, brightness:acc.brightness}
       if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState, brightness:acc.brightness}
       
-  }, {masterState:false, actionState:false, type: 'init', brightness:0}),
+  }, {masterState:true, actionState:false, type: 'init', brightness:100}),
   filter(e => e.type!=='omit')
   
   );
@@ -159,6 +160,7 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
 
   combinedStream
 .subscribe(async m => {
+  console.log(m);
     if (m.actionState){
       (await mqtt.getClusterAsync()).publishMessage('kitchen/lights',m.brightness.toString());
     }
