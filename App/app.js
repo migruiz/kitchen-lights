@@ -1,8 +1,9 @@
-const { Observable,merge,timer, interval } = require('rxjs');
+const { Observable,Subject,merge,timer, interval } = require('rxjs');
 const { mergeMap, withLatestFrom, map,share,shareReplay, filter,mapTo,take,debounceTime,throttle,throttleTime, startWith, takeWhile, delay, scan, distinct,distinctUntilChanged, tap, flatMap, takeUntil, toArray, groupBy} = require('rxjs/operators');
 var mqtt = require('./mqttCluster.js');
 global.mtqqLocalPath = 'mqtt://192.168.0.11';
 var spawn = require('child_process').spawn;
+var http = require('http');
 const CronJob = require('cron').CronJob;
 const {DateTime} = require('luxon');
 
@@ -143,7 +144,20 @@ const masterButtonStream = buttonControl.pipe(
   })
 )
 
-const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,sunSetStream).pipe(
+// The slider on the kitchen iPad's home screen, a second control beside the knob: a
+// brightness from 2 to 1000, or 0 for off until it is slid up again (like a knob press).
+// The page asks GET /lights every 2 seconds and sends POST /lights {"brightness": n} when
+// the finger lifts; nginx on the Pi (the screens container) passes both through to here.
+const SCREEN_PORT = 8767;
+const screenControl = new Subject();
+const screenStream = screenControl.pipe(
+  map(brightness => brightness === 0 ? { type:"screenOff" } : { type:"screenSet", value:brightness })
+)
+
+const initialState = {masterState:true, actionState:false, type: 'init', brightness:100};
+let currentState = initialState;
+
+const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,sunSetStream,screenStream).pipe(
   scan((acc, curr) => {
       if (curr.type==='toggle')  return {type:curr.type, masterState:!acc.masterState, actionState:!acc.masterState, brightness:100}
       if (curr.type==='masterDown')  return {type:curr.type, masterState:true, actionState:true, brightness: acc.brightness - curr.value < 2 ? 2 : acc.brightness - curr.value }
@@ -151,11 +165,46 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
       if (curr.type==='sunRise') return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
       if (curr.type==='sunSet')  return {type:curr.type, masterState:true, actionState:acc.actionState, brightness:acc.brightness}
       if (curr.type==='auto')    return {type:acc.masterState ? curr.type : 'omit', masterState:acc.masterState, actionState:curr.actionState, brightness:acc.brightness}
+      if (curr.type==='screenSet') return {type:curr.type, masterState:true, actionState:true, brightness:curr.value}
+      if (curr.type==='screenOff') return {type:curr.type, masterState:false, actionState:false, brightness:acc.brightness}
       
-  }, {masterState:true, actionState:false, type: 'init', brightness:100}),
+  }, initialState),
+  tap(state => { currentState = state }),
   filter(e => e.type!=='omit')
   
   );
+
+// What the slider shows: the brightness, whether the lights are on right now, and whether
+// motion is in charge (false after a knob press, sliding to off, or sunrise).
+function screenState() {
+  return {
+    brightness: currentState.brightness,
+    on: currentState.masterState && currentState.actionState,
+    automatic: currentState.masterState,
+  };
+}
+
+http.createServer((req, res) => {
+  const reply = (status, body) => {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(body));
+  };
+  if (req.url !== '/lights') return reply(404, { error: 'only /lights' });
+  if (req.method === 'GET') return reply(200, screenState());
+  if (req.method !== 'POST') return reply(405, { error: 'GET or POST /lights' });
+  let body = '';
+  req.on('data', chunk => { body += chunk });
+  req.on('end', () => {
+    let brightness;
+    try { brightness = JSON.parse(body).brightness } catch (e) {}
+    if (typeof brightness !== 'number' || !isFinite(brightness)) {
+      return reply(400, { error: 'send {"brightness": 0 to 1000}' });
+    }
+    // Runs through the scan above at once, so the reply already has the new state.
+    screenControl.next(brightness <= 0 ? 0 : Math.max(2, Math.min(1000, Math.round(brightness))));
+    reply(200, screenState());
+  });
+}).listen(SCREEN_PORT, () => console.log(`slider requests on port ${SCREEN_PORT}`));
 
 
   combinedStream
