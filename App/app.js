@@ -96,10 +96,15 @@ global.mtqqLocalPath = 'mqtt://192.168.0.11';
       map(sunSetHour => ({type:'sunSet',hour:sunSetHour}))
       )
 
+  // When the sensor last saw someone (from the start, until it has), for the kitchen iPad:
+  // its screen goes dark once the kitchen has been quiet for a while.
+  let lastMotionAt = Date.now();
+
   const sensorStream = new Observable(async subscriber => {  
     var mqttCluster=await mqtt.getClusterAsync()   
     mqttCluster.subscribeData('zigbee2mqtt/0x142d41fffe24a424', function(content){   
       if (content.occupancy){      
+        lastMotionAt = Date.now();
         subscriber.next(content)
     }
     });
@@ -175,12 +180,14 @@ const combinedStream = merge(autoOnOffStream,masterButtonStream,sunRiseStream,su
   );
 
 // What the slider shows: the brightness, whether the lights are on right now, and whether
-// motion is in charge (false after a knob press, sliding to off, or sunrise).
+// motion is in charge (false after a knob press, sliding to off, or sunrise). Also how many
+// seconds the motion sensor has been quiet, day or night, which the iPad's screen follows.
 function screenState() {
   return {
     brightness: currentState.brightness,
     on: currentState.masterState && currentState.actionState,
     automatic: currentState.masterState,
+    quietSeconds: Math.round((Date.now() - lastMotionAt) / 1000),
   };
 }
 
